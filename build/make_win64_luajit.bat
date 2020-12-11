@@ -8,10 +8,10 @@ call msvcbuild_mt.bat static
 cd ..\..
 
 mkdir build_lj64 & pushd build_lj64
-cmake -DUSING_LUAJIT=ON ..
+cmake -DUSING_LUAJIT=ON -A x64 ..
 IF %ERRORLEVEL% NEQ 0 cmake -DUSING_LUAJIT=ON ..
 popd
-cmake --build build_lj64 --config Release
+cmake --build build_lj64 --config MinSizeRel
 md plugin_luajit\Plugins\x86_64
-copy /Y build_lj64\Release\xlua.dll plugin_luajit\Plugins\x86_64\xlua.dll
+copy /Y build_lj64\MinSizeRel\xlua.dll plugin_luajit\Plugins\x86_64\xlua.dll
 pause

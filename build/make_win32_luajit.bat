@@ -11,7 +11,7 @@ mkdir build_lj32 & pushd build_lj32
 cmake -DUSING_LUAJIT=ON -A Win32 ..
 IF %ERRORLEVEL% NEQ 0 cmake -DUSING_LUAJIT=ON -A Win32 ..
 popd
-cmake --build build_lj32 --config Release
+cmake --build build_lj32 --config MinSizeRel
 md plugin_luajit\Plugins\x86
-copy /Y build_lj32\Release\xlua.dll plugin_luajit\Plugins\x86\xlua.dll
+copy /Y build_lj32\MinSizeRel\xlua.dll plugin_luajit\Plugins\x86\xlua.dll
 pause
