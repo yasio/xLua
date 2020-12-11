@@ -7,12 +7,9 @@
 cmake_minimum_required(VERSION 2.8.12)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "WindowsStore")
-    set (WINSTORE TRUE CACHE BOOL "" FORCE)
-    set (MSVC TRUE CACHE BOOL "" FORCE)
-elseif(WIN32)
-    set (MSVC TRUE CACHE BOOL "" FORCE)
+    set (WINSTORE TRUE CACHE BOOL "")
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-    set (LINUX TRUE CACHE BOOL "" FORCE)
+    set (LINUX TRUE CACHE BOOL "")
 endif()
 
 if ( WIN32 AND NOT ANDROID )
@@ -34,6 +31,9 @@ option ( USING_LUAJIT "using luajit" OFF )
 option ( GC64 "using gc64" OFF )
 option ( LUAC_COMPATIBLE_FORMAT "compatible format" OFF )
 option ( XLUA_BUILD_WITH_CARES "build with c-ares support" ON )
+
+message(STATUS "WINSTORE=${WINSTORE}")
+message(STATUS "LINUX=${LINUX}")
 
 if(WINSTORE)
     set (XLUA_BUILD_WITH_CARES OFF)
@@ -326,7 +326,7 @@ target_compile_definitions (xlua PUBLIC YASIO_ENABLE_ARES_PROFILER=1)
 
 # fix default lua_newuserdata can't return aligned pointer properly
 # MSVC max_align_t=double, lua already handle properly
-if (NOT MSVC)
+if (NOT WIN32 AND NOT WINSTORE)
     # see also: https://github.com/llvm/llvm-project/blob/master/clang/lib/Headers/__stddef_max_align_t.h
     if(APPLE)
         target_compile_definitions (xlua PUBLIC "LUAI_USER_ALIGNMENT_T=long double")
