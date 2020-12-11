@@ -28,7 +28,11 @@ option ( XLUA_BUILD_WITH_CARES "build with c-ares support" ON )
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     set (LINUX true)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "WindowsStore")
+    set (XLUA_BUILD_WITH_CARES OFF)
 endif()
+
+message(STATUS "XLUA_BUILD_WITH_CARES=${XLUA_BUILD_WITH_CARES}")
 
 find_path(XLUA_PROJECT_DIR NAMES SConstruct
     PATHS 
