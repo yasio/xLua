@@ -4,13 +4,22 @@
 # http://opensource.org/licenses/MIT
 # Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 2.8.12)
 
-if ( WIN32 AND NOT CYGWIN AND NOT ( CMAKE_SYSTEM_NAME STREQUAL "WindowsStore" ) AND NOT ANDROID)
-	set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /MT" CACHE STRING "")
-	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /MTd" CACHE STRING "")
-	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT" CACHE STRING "")
-	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MTd" CACHE STRING "")
+if(CMAKE_SYSTEM_NAME STREQUAL "WindowsStore")
+    set (WINSTORE TRUE CACHE BOOL "" FORCE)
+    set (MSVC TRUE CACHE BOOL "" FORCE)
+elseif(WIN32)
+    set (MSVC TRUE CACHE BOOL "" FORCE)
+elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+    set (LINUX TRUE CACHE BOOL "" FORCE)
+endif()
+
+if ( WIN32 AND NOT ANDROID )
+	set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /MD" CACHE STRING "")
+	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /MDd" CACHE STRING "")
+	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MD" CACHE STRING "")
+	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MDd" CACHE STRING "")
 endif ()
 
 project(XLua)
@@ -26,12 +35,9 @@ option ( GC64 "using gc64" OFF )
 option ( LUAC_COMPATIBLE_FORMAT "compatible format" OFF )
 option ( XLUA_BUILD_WITH_CARES "build with c-ares support" ON )
 
-if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-    set (LINUX true)
-elseif(CMAKE_SYSTEM_NAME STREQUAL "WindowsStore")
+if(WINSTORE)
     set (XLUA_BUILD_WITH_CARES OFF)
 endif()
-
 message(STATUS "XLUA_BUILD_WITH_CARES=${XLUA_BUILD_WITH_CARES}")
 
 find_path(XLUA_PROJECT_DIR NAMES SConstruct
@@ -320,7 +326,7 @@ target_compile_definitions (xlua PUBLIC YASIO_ENABLE_ARES_PROFILER=1)
 
 # fix default lua_newuserdata can't return aligned pointer properly
 # MSVC max_align_t=double, lua already handle properly
-if (NOT WIN32)
+if (NOT MSVC)
     # see also: https://github.com/llvm/llvm-project/blob/master/clang/lib/Headers/__stddef_max_align_t.h
     if(APPLE)
         target_compile_definitions (xlua PUBLIC "LUAI_USER_ALIGNMENT_T=long double")
