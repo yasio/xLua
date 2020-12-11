@@ -323,14 +323,15 @@ if (XLUA_BUILD_WITH_CARES)
     target_compile_definitions (xlua PUBLIC YASIO_HAVE_CARES=1)
     
    # for yasio_jni to init c-ares properly
-   target_compile_definitions (xlua PUBLIC LUAI_USER_ALIGNMENT_T=max_align_t)
+   target_compile_definitions (xlua PUBLIC YASIO_BUILD_AS_SHARED=1)
 endif ()
 target_compile_definitions (xlua PUBLIC YASIO_ENABLE_ARES_PROFILER=1)
 # end additional compiler flags
 
 # fix default lua_newuserdata can't return aligned pointer properly
 # MSVC max_align_t=double, lua already handle properly
-if (NOT WIN32 AND NOT WINSTORE)
+if (NOT MSVC)
+    message(STATUS "Define LUAI_USER_ALIGNMENT_T for non-msvc compiler to solve address align issue!")
     # see also: https://github.com/llvm/llvm-project/blob/master/clang/lib/Headers/__stddef_max_align_t.h
     if(APPLE)
         target_compile_definitions (xlua PUBLIC "LUAI_USER_ALIGNMENT_T=long double")
