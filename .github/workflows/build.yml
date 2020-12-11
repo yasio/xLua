@@ -118,7 +118,7 @@ jobs:
           path: ./build/plugin_luajit/**/*
           name: plugin_luajit  
   windows:
-    runs-on: windows-2016
+    runs-on: windows-latest
 
     steps:
       - uses: actions/checkout@v2
@@ -156,7 +156,7 @@ jobs:
           name: plugin_luajit
           
   windows-luajit-32:
-    runs-on: windows-2016
+    runs-on: windows-latest
 
     steps:
       - uses: actions/checkout@v2

@@ -24,6 +24,7 @@ option ( UINT_ESPECIALLY "using custom ulong" OFF )
 option ( USING_LUAJIT "using luajit" OFF )
 option ( GC64 "using gc64" OFF )
 option ( LUAC_COMPATIBLE_FORMAT "compatible format" OFF )
+option ( XLUA_BUILD_WITH_CARES "build with c-ares support" ON )
 
 find_path(XLUA_PROJECT_DIR NAMES SConstruct
     PATHS 
@@ -39,6 +40,63 @@ endif()
 
 set(LUA_SRC_PATH lua-${LUA_VERSION}/src)
 set(LUAJIT_SRC_PATH luajit-2.1.0b3/src)
+
+#c++ standard
+if (NOT DEFINED CXX_STD)
+    set (CXX_STD 14)
+endif()
+message(STATUS "CXX_STD=${CXX_STD}")
+set(CMAKE_CXX_STANDARD ${CXX_STD})
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+#begin yasio
+if (ANDROID)
+    if (NOT THIRDPART_LIB)
+        set(THIRDPART_LIB "-llog")
+    else()
+        set(THIRDPART_LIB "${THIRDPART_LIB} -llog")
+    endif()
+endif()
+
+set (YASIO_SRC
+    yasio/ibstream.cpp
+    yasio/obstream.cpp
+    yasio/xxsocket.cpp
+    yasio/yasio.cpp
+    yasio/bindings/lyasio.cpp
+    yasio/bindings/yasio_ni.cpp
+)
+
+if (XLUA_BUILD_WITH_CARES AND ANDROID)
+   set (YASIO_SRC ${YASIO_SRC}
+    yasio/platform/yasio_jni.cpp
+   )
+endif()
+
+set_property(
+    SOURCE ${YASIO_SRC}
+    APPEND
+    PROPERTY COMPILE_DEFINITIONS
+)
+list(APPEND THIRDPART_INC yasio)
+set (THIRDPART_SRC ${THIRDPART_SRC} ${YASIO_SRC})
+
+if (XLUA_BUILD_WITH_CARES)
+    #begin c-ares
+    set(CARES_STATIC ON CACHE BOOL "Build c-ares as static library" FORCE)
+    set(CARES_SHARED OFF CACHE BOOL "Build c-ares as shared library" FORCE)
+    set(CARES_BUILD_TOOLS OFF CACHE BOOL "Build c-ares tools" FORCE)
+    set(CARES_INSTALL OFF CACHE BOOL "Create installation targets (chain builders may want to disable this)" FORCE)
+    if(CMAKE_OSX_ARCHITECTURES)
+        set(CMAKE_OSX_ARCHITECTURES "${CMAKE_OSX_ARCHITECTURES}" CACHE STRING "Passing osx arch to c-ares" FORCE)
+    endif()
+    add_subdirectory(c-ares)
+    include_directories($<TARGET_FILE_DIR:c-ares>)
+    #end c-ares
+endif ()
+
+#end yasio
 
 if (USING_LUAJIT)
 	
@@ -236,3 +294,25 @@ else ( )
         )
     endif()
 endif ( )
+
+# begin additional compiler flags
+if (XLUA_BUILD_WITH_CARES)
+    target_link_libraries(xlua c-ares)
+    target_compile_definitions (xlua PUBLIC YASIO_HAVE_CARES=1)
+    
+   # for yasio_jni to init c-ares properly
+   target_compile_definitions (xlua PUBLIC LUAI_USER_ALIGNMENT_T=max_align_t)
+endif ()
+target_compile_definitions (xlua PUBLIC YASIO_ENABLE_ARES_PROFILER=1)
+# end additional compiler flags
+
+# fix default lua_newuserdata can't return aligned pointer properly
+# MSVC max_align_t=double, lua already handle properly
+if (NOT WIN32)
+    # see also: https://github.com/llvm/llvm-project/blob/master/clang/lib/Headers/__stddef_max_align_t.h
+    if(APPLE)
+        target_compile_definitions (xlua PUBLIC "LUAI_USER_ALIGNMENT_T=long double")
+    else()
+        target_compile_definitions (xlua PUBLIC LUAI_USER_ALIGNMENT_T=max_align_t)
+    endif()
+endif()

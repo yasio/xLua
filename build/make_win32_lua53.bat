@@ -1,7 +1,7 @@
 mkdir build32 & pushd build32
-cmake -G "Visual Studio 15 2017" ..
+cmake -A Win32 ..
 popd
-cmake --build build32 --config Release
+cmake --build build32 --config MinSizeRel
 md plugin_lua53\Plugins\x86
-copy /Y build32\Release\xlua.dll plugin_lua53\Plugins\x86\xlua.dll
+copy /Y build32\MinSizeRel\xlua.dll plugin_lua53\Plugins\x86\xlua.dll
 pause
