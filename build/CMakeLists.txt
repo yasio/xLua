@@ -93,6 +93,10 @@ if (XLUA_BUILD_WITH_CARES)
     endif()
     add_subdirectory(c-ares)
     include_directories($<TARGET_FILE_DIR:c-ares>)
+    if(LINUX AND NOT ANDROID)
+        message(STATUS "Add -fPIC for c-ares for resolve link error")
+        target_compile_options(c-ares PRIVATE "-fPIC")
+    endif()
     #end c-ares
 endif ()
 
