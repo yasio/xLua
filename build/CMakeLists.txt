@@ -6,12 +6,6 @@
 
 cmake_minimum_required(VERSION 2.8.12)
 
-if(CMAKE_SYSTEM_NAME STREQUAL "WindowsStore")
-    set (WINSTORE TRUE CACHE BOOL "")
-elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-    set (LINUX TRUE CACHE BOOL "")
-endif()
-
 if ( WIN32 AND NOT ANDROID )
 	set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /MD" CACHE STRING "")
 	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /MDd" CACHE STRING "")
@@ -20,6 +14,14 @@ if ( WIN32 AND NOT ANDROID )
 endif ()
 
 project(XLua)
+
+# Resolve missing platform macros
+# pitfall: On linux the CMAKE_SYSTEM_NAME initialized after project(XLua)
+if(CMAKE_SYSTEM_NAME STREQUAL "WindowsStore")
+    set (WINSTORE TRUE CACHE BOOL "")
+elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+    set (LINUX TRUE CACHE BOOL "")
+endif()
 
 if ( IOS )
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fembed-bitcode")
@@ -34,7 +36,9 @@ option ( XLUA_BUILD_WITH_CARES "build with c-ares support" ON )
 
 message(STATUS "WINSTORE=${WINSTORE}")
 message(STATUS "LINUX=${LINUX}")
+message(STATUS "MSVC=${MSVC}")
 
+# Disable c-ares for winstore, because c-ares not support it properly
 if(WINSTORE)
     set (XLUA_BUILD_WITH_CARES OFF)
 endif()
