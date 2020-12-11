@@ -26,6 +26,10 @@ option ( GC64 "using gc64" OFF )
 option ( LUAC_COMPATIBLE_FORMAT "compatible format" OFF )
 option ( XLUA_BUILD_WITH_CARES "build with c-ares support" ON )
 
+if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+    set (LINUX true)
+endif()
+
 find_path(XLUA_PROJECT_DIR NAMES SConstruct
     PATHS 
     ${CMAKE_SOURCE_DIR}
@@ -93,7 +97,7 @@ if (XLUA_BUILD_WITH_CARES)
     endif()
     add_subdirectory(c-ares)
     include_directories($<TARGET_FILE_DIR:c-ares>)
-    if( (${CMAKE_SYSTEM_NAME} MATCHES "Linux") AND (NOT ANDROID) )
+    if( LINUX AND (NOT ANDROID) )
         message(STATUS "Add -fPIC for c-ares for resolve link error")
         target_compile_options(c-ares PRIVATE "-fPIC")
     endif()
@@ -319,4 +323,12 @@ if (NOT WIN32)
     else()
         target_compile_definitions (xlua PUBLIC LUAI_USER_ALIGNMENT_T=max_align_t)
     endif()
+endif()
+
+# strip
+message("CMAKE_STRIP=${CMAKE_STRIP}")
+if (LINUX OR ANDROID)
+    add_custom_command(TARGET xlua POST_BUILD
+        COMMAND ${CMAKE_STRIP} ${PROJECT_BINARY_DIR}/libxlua.so -o ${PROJECT_BINARY_DIR}/libxlua.so
+    )
 endif()
