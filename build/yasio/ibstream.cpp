@@ -188,13 +188,12 @@ cxx17::string_view ibstream_view::read_bytes(int len)
 
 const char* ibstream_view::consume(size_t size)
 {
-  if (ptr_ >= last_)
-    YASIO__THROW(std::out_of_range("ibstream_view::consume out of range!"), nullptr);
-
-  auto ptr = ptr_;
-  ptr_ += size;
-
-  return ptr;
+  if ( (ptr_ + size) <= last_ ) {
+    auto ptr = ptr_;
+    ptr_ += size;
+    return ptr;
+  }
+  YASIO__THROW(std::out_of_range("ibstream_view::consume out of range!"), nullptr);
 }
 
 ptrdiff_t ibstream_view::seek(ptrdiff_t offset, int whence)
@@ -209,10 +208,10 @@ ptrdiff_t ibstream_view::seek(ptrdiff_t offset, int whence)
         ptr_ = last_;
       break;
     case SEEK_END:
-      ptr_ = first_;
+      ptr_ = last_ - offset;
       break;
     case SEEK_SET:
-      ptr_ = last_;
+      ptr_ = first_ + offset;
       break;
     default:;
   }
@@ -222,7 +221,9 @@ ptrdiff_t ibstream_view::seek(ptrdiff_t offset, int whence)
 /// --------------------- CLASS ibstream ---------------------
 ibstream::ibstream(std::vector<char> blob) : ibstream_view(), blob_(std::move(blob)) { this->reset(blob_.data(), static_cast<int>(blob_.size())); }
 ibstream::ibstream(const obstream* obs) : ibstream_view(), blob_(obs->buffer()) { this->reset(blob_.data(), static_cast<int>(blob_.size())); }
-bool ibstream::load(const char* filename) {
+
+bool ibstream::load(const char* filename)
+{
   std::ifstream fin;
   fin.open(filename, std::ios::binary);
   if (fin.is_open())
@@ -234,6 +235,7 @@ bool ibstream::load(const char* filename) {
       blob_.resize(static_cast<size_t>(size));
       fin.seekg(0, std::ios_base::beg);
       fin.read(blob_.data(), blob_.size());
+      this->reset(blob_.data(), static_cast<int>(blob_.size()));
       return true;
     }
   }

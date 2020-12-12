@@ -40,6 +40,8 @@ namespace yasio
 class obstream;
 class ibstream_view {
 public:
+  using traits_type = ::yasio::endian::convert_traits<::yasio::endian::network_convert_tag>;
+
   YASIO__DECL ibstream_view();
   YASIO__DECL ibstream_view(const void* data, size_t size);
   YASIO__DECL ibstream_view(const obstream*);
@@ -76,27 +78,24 @@ public:
   YASIO__DECL cxx17::string_view read_bytes(int len);
 
   bool empty() const { return first_ == last_; }
-  size_t length(void) { return last_ - first_; }
-  const char* data() { return first_; }
+  size_t length(void) const { return last_ - first_; }
+  const char* data() const { return first_; }
 
   YASIO__DECL ptrdiff_t seek(ptrdiff_t offset, int whence);
 
   template <typename _Nty> inline _Nty read() { return sread<_Nty>(consume(sizeof(_Nty))); }
-
   template <typename _Nty> static _Nty sread(const void* ptr)
   {
     _Nty value;
     ::memcpy(&value, ptr, sizeof(value));
-    return yasio::endian::ntohv(value);
+    return traits_type::from<_Nty>(value);
   }
 
   template <typename _LenT> inline cxx17::string_view read_v_fx()
   {
     _LenT n = this->read<_LenT>();
-
     if (n > 0)
       return read_bytes(n);
-
     return {};
   }
 
@@ -110,27 +109,16 @@ protected:
   const char* ptr_;
 };
 
-template <> inline float ibstream_view::sread<float>(const void* ptr)
-{
-  uint32_t nv;
-  ::memcpy(&nv, ptr, sizeof(nv));
-  return ntohf(nv);
-}
-template <> inline double ibstream_view::sread<double>(const void* ptr)
-{
-  uint64_t nv;
-  ::memcpy(&nv, ptr, sizeof(nv));
-  return ntohd(nv);
-}
-
 template <> YASIO__DECL int32_t ibstream_view::read_ix<int32_t>();
 template <> YASIO__DECL int64_t ibstream_view::read_ix<int64_t>();
 
 /// --------------------- CLASS ibstream ---------------------
 class ibstream : public ibstream_view {
 public:
+  ibstream() {}
   YASIO__DECL ibstream(std::vector<char> blob);
   YASIO__DECL ibstream(const obstream* obs);
+
   YASIO__DECL bool load(const char* filename);
 
 private:
