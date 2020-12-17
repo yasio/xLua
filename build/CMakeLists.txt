@@ -78,8 +78,6 @@ if (ANDROID)
 endif()
 
 set (YASIO_SRC
-    yasio/ibstream.cpp
-    yasio/obstream.cpp
     yasio/xxsocket.cpp
     yasio/yasio.cpp
     yasio/bindings/lyasio.cpp
