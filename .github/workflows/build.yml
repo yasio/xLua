@@ -23,7 +23,8 @@ jobs:
           cd build
           ./make_android_lua54.sh
           ./make_android_lua53.sh
-          sudo apt install gcc-multilib --fix-missing
+          sudo apt-get update --fix-missing
+          sudo apt install gcc-multilib
           ./make_android_luajit_arm64.sh
       - name: Upload
         uses: actions/upload-artifact@v2
