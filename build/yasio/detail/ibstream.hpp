@@ -121,6 +121,11 @@ public:
   basic_ibstream_view() { this->reset("", 0); }
   basic_ibstream_view(const void* data, size_t size) { this->reset(data, size); }
   basic_ibstream_view(const basic_obstream<_Traits>* obs) { this->reset(obs->data(), obs->length()); }
+  basic_ibstream_view(const basic_obstream<_Traits>* obs, ptrdiff_t offset)
+  {
+    this->reset(obs->data(), obs->length());
+    this->advance(offset);
+  }
   basic_ibstream_view(const basic_ibstream_view&) = delete;
   basic_ibstream_view(basic_ibstream_view&&)      = delete;
 
@@ -188,6 +193,7 @@ public:
   const char* data() const { return first_; }
 
   void advance(ptrdiff_t offset) { ptr_ += offset; }
+  ptrdiff_t tell() const { return ptr_ - first_; }
   ptrdiff_t seek(ptrdiff_t offset, int whence)
   {
     switch (whence)
@@ -275,15 +281,15 @@ public:
     return false;
   }
 
-private:
+protected:
   std::vector<char> blob_;
 };
 
-using ibstream_view = basic_ibstream_view<::yasio::endian::convert_traits<::yasio::endian::network_convert_tag>>;
-using ibstream      = basic_ibstream<::yasio::endian::convert_traits<::yasio::endian::network_convert_tag>>;
+using ibstream_view = basic_ibstream_view<convert_traits<network_convert_tag>>;
+using ibstream      = basic_ibstream<convert_traits<network_convert_tag>>;
 
-using fast_ibstream_view = basic_ibstream_view<::yasio::endian::convert_traits<::yasio::endian::host_convert_tag>>;
-using fast_ibstream      = basic_ibstream<::yasio::endian::convert_traits<::yasio::endian::host_convert_tag>>;
+using fast_ibstream_view = basic_ibstream_view<convert_traits<host_convert_tag>>;
+using fast_ibstream      = basic_ibstream<convert_traits<host_convert_tag>>;
 
 } // namespace yasio
 

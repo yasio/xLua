@@ -229,6 +229,7 @@ inline bool IN6_IS_ADDR_GLOBAL(const in6_addr* a)
 
 namespace yasio
 {
+YASIO__NS_INLINE
 namespace inet
 {
 
@@ -684,7 +685,7 @@ using namespace yasio::inet::ip;
 /*
 ** CLASS xxsocket: a posix socket wrapper
 */
-class xxsocket {
+class YASIO_API xxsocket {
 public: /// portable connect APIs
   // easy to connect a server ipv4 or ipv6 with local ip protocol version detect
   // for support ipv6 ONLY network.
@@ -1068,8 +1069,8 @@ public:
    **
    ** @returns: [0] succeed, otherwise, a value of SOCKET_ERROR is returned.
    */
-  YASIO__DECL uint32_t tcp_rtt() const;
-  YASIO__DECL static uint32_t tcp_rtt(socket_native_type s);
+  YASIO__DECL unsigned int tcp_rtt() const;
+  YASIO__DECL static unsigned int tcp_rtt(socket_native_type s);
 
   YASIO__DECL operator socket_native_type() const;
 
@@ -1181,8 +1182,9 @@ private:
 }; // namespace inet
 
 } // namespace inet
-
-namespace net = inet;
+#if !YASIO__HAS_NS_INLINE
+using namespace yasio::inet;
+#endif
 } // namespace yasio
 
 namespace std

@@ -53,9 +53,6 @@ SOFTWARE.
 #  pragma warning(disable : 4996)
 #endif
 
-using namespace yasio;
-using namespace yasio::inet;
-
 #if defined(_WIN32) && !defined(_WINSTORE)
 static LPFN_ACCEPTEX __accept_ex                           = nullptr;
 static LPFN_GETACCEPTEXSOCKADDRS __get_accept_ex_sockaddrs = nullptr;
@@ -65,6 +62,7 @@ static LPFN_CONNECTEX __connect_ex                         = nullptr;
 #if !YASIO__HAS_NTOP
 namespace yasio
 {
+YASIO__NS_INLINE
 namespace inet
 {
 YASIO__NS_INLINE
@@ -78,6 +76,12 @@ namespace compat
 } // namespace inet
 } // namespace yasio
 #endif
+
+namespace yasio
+{
+YASIO__NS_INLINE
+namespace inet
+{
 
 int xxsocket::xpconnect(const char* hostname, u_short port, u_short local_port)
 {
@@ -532,7 +536,10 @@ int xxsocket::accept_n(socket_native_type& new_sock) const
 
     // Check if operation succeeded.
     if (new_sock != invalid_socket)
+    {
+      xxsocket::set_nonblocking(new_sock, true);
       return 0;
+    }
 
     auto error = get_last_errno();
     // Retry operation if interrupted by signal.
@@ -862,8 +869,8 @@ void xxsocket::close(int shut_how)
   }
 }
 
-uint32_t xxsocket::tcp_rtt() const { return xxsocket::tcp_rtt(this->fd); }
-uint32_t xxsocket::tcp_rtt(socket_native_type s)
+unsigned int xxsocket::tcp_rtt() const { return xxsocket::tcp_rtt(this->fd); }
+unsigned int xxsocket::tcp_rtt(socket_native_type s)
 {
 #if defined(_WIN32)
 #  if defined(NTDDI_WIN10_RS2) && NTDDI_VERSION >= NTDDI_WIN10_RS2
@@ -947,6 +954,8 @@ const char* xxsocket::gai_strerror(int error)
   return ::gai_strerror(error);
 #endif
 }
+} // namespace inet
+} // namespace yasio
 
 // initialize win32 socket library
 #ifdef _WIN32
