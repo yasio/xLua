@@ -22,7 +22,7 @@
 #include "lstate.h"
 #endif
 
-#include "yasio/bindings/lyasio.h"
+LUA_API void luaregister_yasio(lua_State* L);
 
 /*
 ** stdcall C function support
