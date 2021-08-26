@@ -67,7 +67,7 @@ jobs:
           path: ./build/plugin_luajit/**/*
           name: plugin_luajit  
   ios:
-    runs-on: macos-latest
+    runs-on: macos-10.13
 
     steps:
       - uses: actions/checkout@v2
