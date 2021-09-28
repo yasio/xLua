@@ -315,13 +315,14 @@ else ( )
     endif()
 endif ( )
 
+if ( BUILD_SHARED_LIBS )
+    target_compile_definitions (xlua PUBLIC YASIO_BUILD_SHARED_LIBS=1)
+endif ()
+
 # begin additional compiler flags
 if (XLUA_BUILD_WITH_CARES)
     target_link_libraries(xlua c-ares)
     target_compile_definitions (xlua PUBLIC YASIO_HAVE_CARES=1)
-    
-   # for yasio_jni to init c-ares properly
-   target_compile_definitions (xlua PUBLIC YASIO_BUILD_AS_SHARED=1)
 endif ()
 target_compile_definitions (xlua PUBLIC YASIO_ENABLE_ARES_PROFILER=1)
 # end additional compiler flags
