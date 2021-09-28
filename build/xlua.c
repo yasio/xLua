@@ -1234,6 +1234,31 @@ static const luaL_Reg xlualib[] = {
 	{NULL, NULL}
 };
 
+int luaopen_yasio(lua_State* l);
+int luaopen_pb(lua_State* l);
+int luaopen_pb_unsafe(lua_State* l);
+
+LUA_API void xlua_register_extensions(lua_State* L) {
+	// clang-format off
+	luaL_Reg _preloaded_libs[] = {
+		{"yasio", luaopen_yasio},
+		{"pb", luaopen_pb},
+		{"pb_unsafe", luaopen_pb_unsafe},
+		{NULL, NULL}
+	};
+	// clang-format on
+	luaL_Reg* lib = _preloaded_libs;
+
+	lua_getglobal(L, "package");
+	lua_getfield(L, -1, "preload");
+	for (; lib->func; ++lib)
+	{
+		lua_pushcfunction(L, lib->func);
+		lua_setfield(L, -2, lib->name);
+	}
+	lua_pop(L, 2);
+}
+
 LUA_API void luaopen_xlua(lua_State *L) {
 	luaL_openlibs(L);
 	
@@ -1245,6 +1270,6 @@ LUA_API void luaopen_xlua(lua_State *L) {
     lua_pop(L, 1);
 #endif
     
-    luaregister_yasio(L);
+	xlua_register_extensions(L);
 }
 
