@@ -22,8 +22,6 @@
 #include "lstate.h"
 #endif
 
-LUA_API void luaregister_yasio(lua_State* L);
-
 /*
 ** stdcall C function support
 */
