@@ -4,7 +4,7 @@
 //////////////////////////////////////////////////////////////////////////////////////////
 /*
 The MIT License (MIT)
-Copyright (c) 2012-2021 HALX99
+Copyright (c) 2012-2022 HALX99
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
@@ -121,7 +121,7 @@ template <typename _Stream, typename _StreamView, typename _OStream>
 static void register_ibstream(sol::table& lib, const char* usertype)
 {
   lib.new_usertype<_Stream>(
-      usertype, sol::constructors<_Stream(), _Stream(std::vector<char>), _Stream(const _OStream*)>(), "load", &_Stream::load, "read_ix",
+      usertype, sol::constructors<_Stream(), _Stream(yasio::sbyte_buffer), _Stream(const _OStream*)>(), "load", &_Stream::load, "read_ix",
       &_Stream::template read_ix<int64_t>, "read_bool", &_Stream::template read<bool>, "read_i8", &_Stream::template read<int8_t>, "read_i16",
       &_Stream::template read<int16_t>, "read_i32", &_Stream::template read<int32_t>, "read_i64", &_Stream::template read<int64_t>, "read_u8",
       &_Stream::template read<uint8_t>, "read_u16", &_Stream::template read<uint16_t>, "read_u32", &_Stream::template read<uint32_t>, "read_u64",
@@ -205,6 +205,7 @@ YASIO_LUA_API int luaopen_yasio(lua_State* L)
           case YOPT_C_LOCAL_PORT:
           case YOPT_C_REMOTE_PORT:
           case YOPT_C_KCP_CONV:
+          case YOPT_C_UNPACK_NO_BSWAP:
             service->set_option(opt, static_cast<int>(args[0]), static_cast<int>(args[1]));
             break;
           case YOPT_C_ENABLE_MCAST:
@@ -242,13 +243,13 @@ YASIO_LUA_API int luaopen_yasio(lua_State* L)
       "write",
       sol::overload(
           [](io_service* service, transport_handle_t transport, cxx17::string_view s) {
-            return service->write(transport, std::vector<char>(s.data(), s.data() + s.length()));
+            return service->write(transport, yasio::sbyte_buffer{s.data(), s.data() + s.length(), std::true_type{}});
           },
           [](io_service* service, transport_handle_t transport, yasio::obstream* obs) { return service->write(transport, std::move(obs->buffer())); }),
       "write_to",
       sol::overload(
           [](io_service* service, transport_handle_t transport, cxx17::string_view s, cxx17::string_view ip, u_short port) {
-            return service->write_to(transport, std::vector<char>(s.data(), s.data() + s.length()), ip::endpoint{ip.data(), port});
+            return service->write_to(transport, yasio::sbyte_buffer{s.data(), s.data() + s.length(), std::true_type{}}, ip::endpoint{ip.data(), port});
           },
           [](io_service* service, transport_handle_t transport, yasio::obstream* obs, cxx17::string_view ip, u_short port) {
             return service->write_to(transport, std::move(obs->buffer()), ip::endpoint{ip.data(), port});
@@ -309,6 +310,7 @@ YASIO_LUA_API int luaopen_yasio(lua_State* L)
   YASIO_EXPORT_ENUM(YOPT_C_ENABLE_MCAST);
   YASIO_EXPORT_ENUM(YOPT_C_DISABLE_MCAST);
   YASIO_EXPORT_ENUM(YOPT_C_KCP_CONV);
+  YASIO_EXPORT_ENUM(YOPT_C_UNPACK_NO_BSWAP);
   YASIO_EXPORT_ENUM(YOPT_C_MOD_FLAGS);
 
   YASIO_EXPORT_ENUM(YCF_REUSEADDR);
@@ -356,11 +358,11 @@ struct lua_type_traits<cxx17::string_view> {
     return 1;
   }
 };
-// std::vector<char>
+// yasio::sbyte_buffer
 template <>
-struct lua_type_traits<std::vector<char>> {
-  typedef std::vector<char> get_type;
-  typedef const std::vector<char>& push_type;
+struct lua_type_traits<yasio::sbyte_buffer> {
+  typedef yasio::sbyte_buffer get_type;
+  typedef const yasio::sbyte_buffer& push_type;
 
   static bool strictCheckType(lua_State* l, int index) { return lua_type(l, index) == LUA_TSTRING; }
   static bool checkType(lua_State* l, int index) { return lua_isstring(l, index) != 0; }
@@ -368,7 +370,7 @@ struct lua_type_traits<std::vector<char>> {
   {
     size_t size        = 0;
     const char* buffer = lua_tolstring(l, index, &size);
-    return std::vector<char>(buffer, buffer + size);
+    return yasio::sbyte_buffer(buffer, buffer + size, std::true_type{});
   }
   static int push(lua_State* l, push_type s)
   {
@@ -448,7 +450,7 @@ namespace lyasio
 #  define kaguya_ibstream_view_class(_StreamView, _OStream)                                                                                                    \
     kaguya::UserdataMetatable<_StreamView>().setConstructors<_StreamView(), _StreamView(const void*, size_t), _StreamView(const _OStream*)>()
 #  define kaguya_ibstream_class(_Stream, _StreamView, _OStream)                                                                                                \
-    kaguya::UserdataMetatable<_Stream, _StreamView>().setConstructors<_Stream(std::vector<char>), _Stream(const _OStream*)>()
+    kaguya::UserdataMetatable<_Stream, _StreamView>().setConstructors<_Stream(yasio::sbyte_buffer), _Stream(const _OStream*)>()
 
 template <typename _Stream, typename _BaseStream>
 static void register_obstream(kaguya::LuaTable& lib, const char* usertype, const char* basetype, kaguya::UserdataMetatable<_Stream, _BaseStream>& userclass,
@@ -586,13 +588,13 @@ YASIO_LUA_API int luaopen_yasio(lua_State* L)
           .addOverloadedFunctions(
               "write",
               [](io_service* service, transport_handle_t transport, cxx17::string_view s) {
-                return service->write(transport, std::vector<char>(s.data(), s.data() + s.length()));
+                return service->write(transport, yasio::sbyte_buffer(s.data(), s.data() + s.length()));
               },
               [](io_service* service, transport_handle_t transport, yasio::obstream* obs) { return service->write(transport, std::move(obs->buffer())); })
           .addOverloadedFunctions(
               "write_to",
               [](io_service* service, transport_handle_t transport, cxx17::string_view s, cxx17::string_view ip, u_short port) {
-                return service->write_to(transport, std::vector<char>(s.data(), s.data() + s.length()), ip::endpoint{ip.data(), port});
+                return service->write_to(transport, yasio::sbyte_buffer(s.data(), s.data() + s.length()), ip::endpoint{ip.data(), port});
               },
               [](io_service* service, transport_handle_t transport, yasio::obstream* obs, cxx17::string_view ip, u_short port) {
                 return service->write_to(transport, std::move(obs->buffer()), ip::endpoint{ip.data(), port});
@@ -612,6 +614,7 @@ YASIO_LUA_API int luaopen_yasio(lua_State* L)
                                  case YOPT_C_LOCAL_PORT:
                                  case YOPT_C_REMOTE_PORT:
                                  case YOPT_C_KCP_CONV:
+                                 case YOPT_C_UNPACK_NO_BSWAP:
                                    service->set_option(opt, static_cast<int>(args[0]), static_cast<int>(args[1]));
                                    break;
                                  case YOPT_C_ENABLE_MCAST:
@@ -703,6 +706,7 @@ YASIO_LUA_API int luaopen_yasio(lua_State* L)
   YASIO_EXPORT_ENUM(YOPT_C_ENABLE_MCAST);
   YASIO_EXPORT_ENUM(YOPT_C_DISABLE_MCAST);
   YASIO_EXPORT_ENUM(YOPT_C_KCP_CONV);
+  YASIO_EXPORT_ENUM(YOPT_C_UNPACK_NO_BSWAP);
   YASIO_EXPORT_ENUM(YOPT_C_MOD_FLAGS);
 
   YASIO_EXPORT_ENUM(YCF_REUSEADDR);

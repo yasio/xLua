@@ -5,7 +5,7 @@
 /*
 The MIT License (MIT)
 
-Copyright (c) 2012-2021 HALX99
+Copyright (c) 2012-2022 HALX99
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -33,6 +33,7 @@ SOFTWARE.
 // https://docs.microsoft.com/en-us/cpp/preprocessor/predefined-macros?view=vs-2019
 #if defined(_MSC_VER)
 #  if _MSC_VER < 1900
+#    define noexcept throw()
 #    define YASIO__HAS_FULL_CXX11 0
 #  else
 #    define YASIO__HAS_FULL_CXX11 1

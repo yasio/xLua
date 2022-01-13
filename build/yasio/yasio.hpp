@@ -5,7 +5,7 @@
 /*
 The MIT License (MIT)
 
-Copyright (c) 2012-2021 HALX99
+Copyright (c) 2012-2022 HALX99
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -47,6 +47,7 @@ SOFTWARE.
 #include "yasio/detail/concurrent_queue.hpp"
 #include "yasio/detail/utils.hpp"
 #include "yasio/detail/errc.hpp"
+#include "yasio/detail/byte_buffer.hpp"
 #include "yasio/cxx17/memory.hpp"
 #include "yasio/cxx17/string_view.hpp"
 #include "yasio/xxsocket.hpp"
@@ -241,6 +242,10 @@ enum
   // The kcp conv id, must equal in two endpoint from the same connection
   // params: index:int, conv:int
   YOPT_C_KCP_CONV,
+
+  // Whether never perform bswap for length field
+  // params: index:int, no_bswap:int(0)
+  YOPT_C_UNPACK_NO_BSWAP,
 
   // Change 4-tuple association for io_transport_udp
   // params: transport:transport_handle_t
@@ -564,8 +569,12 @@ private:
   */
   u_short remote_port_ = 0;
 
-  // The last domain name resolved time in microseconds for dns cache support
-  highp_time_t last_resolved_time_ = 0;
+  // The last query success time in microseconds for dns cache support
+  highp_time_t query_success_time_ = 0;
+
+#if defined(YASIO_ENABLE_ARES_PROFILER)
+  highp_time_t query_start_time_;
+#endif
 
   int index_;
   int socktype_ = 0;
@@ -584,6 +593,7 @@ private:
     int length_field_length    = 4;               // 1,2,3,4
     int length_adjustment      = 0;
     int initial_bytes_to_strip = 0;
+    int no_bswap               = 0;
   } uparams_;
   decode_len_fn_t decode_len_;
 
@@ -604,7 +614,7 @@ private:
   ip::endpoint multiaddr_, multiif_;
 
   // Current it's only for UDP
-  std::vector<char> buffer_;
+  sbyte_buffer buffer_;
 
   // The bytes transferred from socket low layer, currently, only works for client channel
   long long bytes_transferred_ = 0;
@@ -618,20 +628,16 @@ private:
 #if defined(YASIO_SSL_BACKEND)
   ssl_auto_handle ssl_;
 #endif
-
-#if defined(YASIO_ENABLE_ARES_PROFILER)
-  highp_time_t ares_start_time_;
-#endif
 };
 
 // for tcp transport only
 class YASIO_API io_send_op {
 public:
-  io_send_op(std::vector<char>&& buffer, completion_cb_t&& handler) : offset_(0), buffer_(std::move(buffer)), handler_(std::move(handler)) {}
+  io_send_op(sbyte_buffer&& buffer, completion_cb_t&& handler) : offset_(0), buffer_(std::move(buffer)), handler_(std::move(handler)) {}
   virtual ~io_send_op() {}
 
-  size_t offset_;            // read pos from sending buffer
-  std::vector<char> buffer_; // sending data buffer
+  size_t offset_;       // read pos from sending buffer
+  sbyte_buffer buffer_; // sending data buffer
   completion_cb_t handler_;
 
   YASIO__DECL virtual int perform(transport_handle_t transport, const void* buf, int n);
@@ -644,7 +650,7 @@ public:
 // for udp transport only
 class YASIO_API io_sendto_op : public io_send_op {
 public:
-  io_sendto_op(std::vector<char>&& buffer, completion_cb_t&& handler, const ip::endpoint& destination)
+  io_sendto_op(sbyte_buffer&& buffer, completion_cb_t&& handler, const ip::endpoint& destination)
       : io_send_op(std::move(buffer), std::move(handler)), destination_(destination)
   {}
 
@@ -680,7 +686,7 @@ public:
 protected:
   io_service& get_service() const { return ctx_->get_service(); }
   bool is_open() const { return state_ == state::OPENED && socket_ && socket_->is_open(); }
-  std::vector<char> fetch_packet()
+  sbyte_buffer fetch_packet()
   {
     expected_size_ = -1;
     return std::move(expected_packet_);
@@ -690,10 +696,10 @@ protected:
   YASIO__DECL const print_fn2_t& __get_cprint() const;
 
   // Call at user thread
-  YASIO__DECL virtual int write(std::vector<char>&&, completion_cb_t&&);
+  YASIO__DECL virtual int write(sbyte_buffer&&, completion_cb_t&&);
 
   // Call at user thread
-  virtual int write_to(std::vector<char>&&, const ip::endpoint&, completion_cb_t&&)
+  virtual int write_to(sbyte_buffer&&, const ip::endpoint&, completion_cb_t&&)
   {
     YASIO_LOG("[warning] io_transport doesn't support 'write_to' operation!");
     return 0;
@@ -720,7 +726,7 @@ protected:
   int offset_ = 0;                      // recv buffer offset
 
   int expected_size_ = -1;
-  std::vector<char> expected_packet_;
+  sbyte_buffer expected_packet_;
 
   io_channel* ctx_;
 
@@ -763,8 +769,8 @@ protected:
   YASIO__DECL void connect();
   YASIO__DECL void disconnect();
 
-  YASIO__DECL int write(std::vector<char>&&, completion_cb_t&&) override;
-  YASIO__DECL int write_to(std::vector<char>&&, const ip::endpoint&, completion_cb_t&&) override;
+  YASIO__DECL int write(sbyte_buffer&&, completion_cb_t&&) override;
+  YASIO__DECL int write_to(sbyte_buffer&&, const ip::endpoint&, completion_cb_t&&) override;
 
   YASIO__DECL void set_primitives() override;
 
@@ -775,7 +781,7 @@ protected:
   YASIO__DECL void confgure_remote(const ip::endpoint& peer);
 
   // process received data from low level
-  YASIO__DECL virtual int handle_input(const char* buf, int bytes_transferred, int& error, highp_time_t& wait_duration);
+  YASIO__DECL virtual int handle_input(const char* data, int bytes_transferred, int& error, highp_time_t& wait_duration);
 
   ip::endpoint peer_;                // for recv only, unstable
   mutable ip::endpoint destination_; // for sendto only, stable
@@ -789,7 +795,7 @@ public:
   ikcpcb* internal_object() { return kcp_; }
 
 protected:
-  YASIO__DECL int write(std::vector<char>&&, completion_cb_t&&) override;
+  YASIO__DECL int write(sbyte_buffer&&, completion_cb_t&&) override;
 
   YASIO__DECL int do_read(int revent, int& error, highp_time_t& wait_duration) override;
   YASIO__DECL bool do_write(highp_time_t& wait_duration) override;
@@ -798,7 +804,7 @@ protected:
 
   YASIO__DECL void check_timeout(highp_time_t& wait_duration) const;
 
-  std::vector<char> rawbuf_; // the low level raw buffer
+  sbyte_buffer rawbuf_; // the low level raw buffer
   ikcpcb* kcp_;
   std::recursive_mutex send_mtx_;
 };
@@ -806,7 +812,7 @@ protected:
 class io_transport_kcp {};
 #endif
 
-using io_packet = std::vector<char>;
+using io_packet = sbyte_buffer;
 #if !defined(YASIO_USE_SHARED_PACKET)
 using packet_t = io_packet;
 inline packet_t wrap_packet(io_packet& raw_packet) { return std::move(raw_packet); }
@@ -1000,9 +1006,9 @@ public:
   */
   int write(transport_handle_t thandle, const void* buf, size_t len, completion_cb_t completion_handler = nullptr)
   {
-    return write(thandle, std::vector<char>((char*)buf, (char*)buf + len), std::move(completion_handler));
+    return write(thandle, sbyte_buffer{(const char*)buf, (const char*)buf + len, std::true_type{}}, std::move(completion_handler));
   }
-  YASIO__DECL int write(transport_handle_t thandle, std::vector<char> buffer, completion_cb_t completion_handler = nullptr);
+  YASIO__DECL int write(transport_handle_t thandle, sbyte_buffer buffer, completion_cb_t completion_handler = nullptr);
 
   /*
    ** Summary: Write data to unconnected UDP transport with specified address.
@@ -1013,9 +1019,9 @@ public:
    */
   int write_to(transport_handle_t thandle, const void* buf, size_t len, const ip::endpoint& to, completion_cb_t completion_handler = nullptr)
   {
-    return write_to(thandle, std::vector<char>((char*)buf, (char*)buf + len), to, std::move(completion_handler));
+    return write_to(thandle, sbyte_buffer{(const char*)buf, (const char*)buf + len, std::true_type{}}, to, std::move(completion_handler));
   }
-  YASIO__DECL int write_to(transport_handle_t thandle, std::vector<char> buffer, const ip::endpoint& to, completion_cb_t completion_handler = nullptr);
+  YASIO__DECL int write_to(transport_handle_t thandle, sbyte_buffer buffer, const ip::endpoint& to, completion_cb_t completion_handler = nullptr);
 
   // The highp_timer support, !important, the callback is called on the thread of io_service
   YASIO__DECL highp_timer_ptr schedule(const std::chrono::microseconds& duration, timer_cb_t);
@@ -1040,8 +1046,8 @@ private:
               [](const timer_impl_t& lhs, const timer_impl_t& rhs) { return lhs.first->wait_duration() > rhs.first->wait_duration(); });
   }
 
-  // Start a async resolve, It's only for internal use
-  YASIO__DECL void start_resolve(io_channel*);
+  // Start a async domain name query
+  YASIO__DECL void start_query(io_channel*);
 
   YASIO__DECL void initialize(const io_hostent* channel_eps /* could be nullptr */, int channel_count);
   YASIO__DECL void finalize();
@@ -1073,12 +1079,8 @@ private:
 
 #if defined(YASIO_HAVE_CARES)
   YASIO__DECL static void ares_getaddrinfo_cb(void* arg, int status, int timeouts, ares_addrinfo* answerlist);
-  void ares_work_started() { ++ares_outstanding_work_; }
-  void ares_work_finished()
-  {
-    if (ares_outstanding_work_ > 0)
-      --ares_outstanding_work_;
-  }
+  YASIO__DECL void ares_work_started();
+  YASIO__DECL void ares_work_finished();
   YASIO__DECL void process_ares_requests(fd_set* fds_array);
   YASIO__DECL void recreate_ares_channel();
   YASIO__DECL void config_ares_name_servers();
@@ -1134,6 +1136,8 @@ private:
   int local_address_family() const { return ((ipsv_ & ipsv_ipv4) || !ipsv_) ? AF_INET : AF_INET6; }
 
   YASIO__DECL void update_dns_status();
+
+  bool address_expired(io_channel* ctx) const { return (highp_clock() - ctx->query_success_time_) > options_.dns_cache_timeout_; }
 
   /* For log macro only */
   inline const print_fn2_t& __get_cprint() const { return options_.print_; }
