@@ -33,6 +33,7 @@ option ( USING_LUAJIT "using luajit" OFF )
 option ( GC64 "using gc64" OFF )
 option ( LUAC_COMPATIBLE_FORMAT "compatible format" OFF )
 option ( XLUA_BUILD_WITH_CARES "build with c-ares support" ON )
+option ( YASIO_USE_SHARED_PACKET "" ON)
 
 message(STATUS "WINSTORE=${WINSTORE}")
 message(STATUS "LINUX=${LINUX}")
@@ -248,17 +249,29 @@ if (APPLE)
 		set_xcode_property (xlua IPHONEOS_DEPLOYMENT_TARGET "7.0" "all")
     else ()
         ADD_DEFINITIONS(-DLUA_USE_MACOSX) #osx platform emmylua debugger must have this option or can not load cpath
-        set(CMAKE_OSX_ARCHITECTURES "$(ARCHS_STANDARD_64_BIT)")
-        add_library(xlua MODULE
-            ${LUA_CORE}
-            ${LUA_LIB}
-            ${LUA_SOCKET}
-            ${XLUA_CORE}
-            ${THIRDPART_SRC}
-        )
-        set_target_properties ( xlua PROPERTIES BUNDLE TRUE )
-        #set_target_properties ( xlua PROPERTIES FRAMEWORK TRUE )
-        #set_target_properties ( xlua PROPERTIES MACOSX_RPATH TRUE )
+        if (BUILD_SILICON)
+           set(CMAKE_OSX_ARCHITECTURES arm64)
+
+            add_library(xlua SHARED
+                ${LUA_CORE}
+                ${LUA_LIB}
+                ${LUA_SOCKET}
+                ${XLUA_CORE}
+                ${THIRDPART_SRC}
+            )
+        else ()
+            set(CMAKE_OSX_ARCHITECTURES "$(ARCHS_STANDARD_64_BIT)")
+            add_library(xlua MODULE
+                ${LUA_CORE}
+                ${LUA_LIB}
+                ${LUA_SOCKET}
+                ${XLUA_CORE}
+                ${THIRDPART_SRC}
+            )
+            set_target_properties ( xlua PROPERTIES BUNDLE TRUE )
+            #set_target_properties ( xlua PROPERTIES FRAMEWORK TRUE )
+            #set_target_properties ( xlua PROPERTIES MACOSX_RPATH TRUE )
+        endif ()
     endif ()
 elseif ("${CMAKE_SYSTEM_NAME}" STREQUAL "Switch")
     add_library(xlua STATIC
@@ -360,3 +373,31 @@ if (LINUX OR ANDROID)
         COMMAND ${CMAKE_STRIP} ${PROJECT_BINARY_DIR}/libxlua.so -o ${PROJECT_BINARY_DIR}/libxlua.so
     )
 endif()
+
+# config yasio options for xlua
+macro(yasio_config_pred pred)
+    if(${pred})
+        target_compile_definitions(xlua PUBLIC ${pred}=1)
+    endif()
+endmacro()
+macro(yasio_config_option optname optval)
+    if(${optname})
+        target_compile_definitions(xlua PUBLIC ${optname}=${optval})
+    endif()
+endmacro()
+yasio_config_pred(YASIO_VERBOSE_LOG)
+yasio_config_pred(YASIO_USE_SPSC_QUEUE)
+yasio_config_pred(YASIO_USE_SHARED_PACKET)
+yasio_config_pred(YASIO_DISABLE_OBJECT_POOL)
+yasio_config_pred(YASIO_ENABLE_ARES_PROFILER)
+yasio_config_pred(YASIO_HAVE_CARES)
+yasio_config_pred(YASIO_HAVE_KCP)
+yasio_config_option(YASIO_SSL_BACKEND "${YASIO_SSL_BACKEND}")
+# yasio_config_pred(YASIO_DISABLE_CONCURRENT_SINGLETON)
+yasio_config_pred(YASIO_ENABLE_UDS)
+yasio_config_pred(YASIO_NT_COMPAT_GAI)
+yasio_config_pred(YASIO_MINIFY_EVENT)
+yasio_config_pred(YASIO_HAVE_HALF_FLOAT)
+
+yasio_config_pred(YASIO_NO_JNI_ONLOAD)
+
