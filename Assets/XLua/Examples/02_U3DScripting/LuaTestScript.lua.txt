@@ -6,20 +6,27 @@
 
 local speed = 10
 local lightCpnt = nil
-
+local yasio_example = nil
 function start()
 	print("lua start...")
 	print("injected object", lightObject)
 	lightCpnt= lightObject:GetComponent(typeof(CS.UnityEngine.Light))
+	yasio_example = require 'example'
 end
 
 function update()
-	local r = CS.UnityEngine.Vector3.up * CS.UnityEngine.Time.deltaTime * speed
+    local deltaTime = CS.UnityEngine.Time.deltaTime
+	local r = CS.UnityEngine.Vector3.up * deltaTime * speed
 	self.transform:Rotate(r)
 	lightCpnt.color = CS.UnityEngine.Color(CS.UnityEngine.Mathf.Sin(CS.UnityEngine.Time.time) / 2 + 0.5, 0, 0, 1)
+	yasio_example.update(deltaTime)
 end
 
 function ondestroy()
+    if yasio_example ~= nil then
+	    print('yasio - stop example')
+        yasio_example.stop()
+	end
     print("lua destroy")
 end
 

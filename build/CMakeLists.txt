@@ -37,6 +37,36 @@ if (NOT LUA_VERSION)
     set(LUA_VERSION "5.3.5")
 endif()
 
+
+# begin yasio
+# yasio strong recommend use c++17 with sol bindings
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
+set (YASIO_SOURCES
+  yasio/yasio/xxsocket.cpp
+  yasio/yasio/io_service.cpp
+  yasio/yasio/bindings/lyasio.cpp
+  yasio/yasio/bindings/yasio_ni.cpp
+  yasio/3rdparty/kcp/ikcp.c
+)
+if (ANDROID)
+  list(APPEND THIRDPART_LIB "log")
+endif()
+list(APPEND THIRDPART_INC yasio yasio/3rdparty yasio/3rdparty/kcp)
+list(APPEND THIRDPART_SRC ${YASIO_SOURCES})
+set_property(
+	SOURCE ${YASIO_SOURCES}
+	APPEND
+	PROPERTY COMPILE_DEFINITIONS
+	LUA_COMPAT_APIINTCASTS LUA_LIB _CRT_SECURE_NO_WARNINGS _WINSOCK_DEPRECATED_NO_WARNINGS
+    YASIO_ENABLE_KCP=1
+    YASIO_ENABLE_HALF_FLOAT=1
+)
+if (MSVC)
+    set_property(SOURCE yasio/yasio/bindings/lyasio.cpp APPEND PROPERTY COMPILE_OPTIONS "/bigobj")
+endif()
+# end yasio
+
 set(LUA_SRC_PATH lua-${LUA_VERSION}/src)
 set(LUAJIT_SRC_PATH luajit-2.1.0b3/src)
 
